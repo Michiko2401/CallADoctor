@@ -4,7 +4,7 @@ import customtkinter as ctk
 import firebase_admin
 from firebase_admin import credentials, storage
 from firebase_admin import firestore
-from PIL import Image, ImageDraw, ImageTk
+from PIL import Image, ImageDraw
 import numpy as np
 import cv2
 from email.message import EmailMessage
@@ -120,8 +120,8 @@ class Clinic:
 
 cred = credentials.Certificate("serviceAccountKey.json")
 # Check if firebase_admin has been initialized
-if not firebase_admin._apps:
-    firebase_admin.initialize_app(cred, {'storageBucket': 'call-a-doctor-20a5d.appspot.com'})
+
+firebase_admin.initialize_app(cred, {'storageBucket': 'call-a-doctor-20a5d.appspot.com'})
 
 db = firestore.client()
 
@@ -131,20 +131,10 @@ app.geometry("1080x664")
 
 set_appearance_mode("light")
 
-
-def btnMenu_Click():
-    print("Button Clicked")
-
-
+# global variable
 pageBookHis = None
-
-
-def btnHome_Click():
-    print("Home button")
-
-
-def btnBookHis_Click():
-    print("Booking history")
+sender_email = "CallADoctor2024@outlook.com"
+sender_email_password = "P7EMtmk8Vw3Y"
 
 
 def btnLogin_Click():
@@ -152,12 +142,24 @@ def btnLogin_Click():
 
 
 def btnSearch_Click():
-    print("Button Clicked")
+    searchTerm = tbSearch.get().strip()
+    filter_type = dropSearch.get()  # Assuming dropSearch holds the filter type
+
+    if filter_type == "Pending":
+        clinics_ref = db.collection('Clinics').where('AppStatus', '==', 'Pending')
+    elif filter_type == "Approved":
+        clinics_ref = db.collection('Clinics').where('AppStatus', '==', 'Approved')
+    elif filter_type == "Decline":
+        clinics_ref = db.collection('Clinics').where('AppStatus', '==', 'Decline')
+    else:
+        clinics_ref = db.collection('Clinics')  # Default to all clinics
+
+    GetClinicInformation(filter_type, clinics_ref, searchTerm)
 
 
 # Function to get clinic information and display it
 # Function to get clinic information and display it
-def GetClinicInformation(filter_type, clinics_ref):
+def GetClinicInformation(filter_type, clinics_ref, searchTerm=""):
     # Fetch data from Firestore
     docs = clinics_ref.stream()
 
@@ -168,7 +170,7 @@ def GetClinicInformation(filter_type, clinics_ref):
         clinic_dict['clinicId'] = doc.id
         clinic_data_list.append(clinic_dict)
 
-    # Remove old clinic information widgets from frameHome
+    # Remove old clinic information widgets from frameClinicInfo
     for widget in frameClinicInfo.winfo_children():
         widget.destroy()
 
@@ -218,48 +220,52 @@ def GetClinicInformation(filter_type, clinics_ref):
                 work_days=clinic_data.get('WorkDays', 'N/A')
             )
 
-            # Create a frame for each clinic
-            frameClinicList = ctk.CTkFrame(master=frameClinicInfo, bg_color="transparent", fg_color="transparent")
-            frameClinicList.grid(row=row_index, column=0, sticky="new", padx=47, pady=10)
-            frameClinicList.grid_columnconfigure(0, weight=1)
+            # Apply search filter by name
+            if searchTerm.lower() in clinic_instance.get_name().lower():
+                # Create a frame for each clinic
+                frameClinicList = ctk.CTkFrame(master=frameClinicInfo, bg_color="transparent", fg_color="transparent")
+                frameClinicList.grid(row=row_index, column=0, sticky="new", padx=47, pady=10)
+                frameClinicList.grid_columnconfigure(0, weight=1)
 
-            # Add image label
-            lblImageClinicList = ctk.CTkLabel(master=frameClinicList, text="", image=clinic_instance.get_image(),
-                                              bg_color="transparent", width=220, height=150)
-            lblImageClinicList.grid(row=0, column=0, sticky="w")
+                # Add image label
+                lblImageClinicList = ctk.CTkLabel(master=frameClinicList, text="", image=clinic_instance.get_image(),
+                                                  bg_color="transparent", width=220, height=150)
+                lblImageClinicList.grid(row=0, column=0, sticky="w")
 
-            # Prepare clinic information string
-            clinic_info_text = (
-                f"Name: {clinic_instance.get_name()}\n"
-                f"Clinic user ID: {clinic_instance.get_clinic_Id()}\n"
-                f"Specialty: {clinic_instance.get_specialty()}\n"
-                f"Phone number: {clinic_instance.get_phone_no()}\n"
-                f"Email address: {clinic_instance.get_email()}\n"
-                f"Address: {clinic_instance.get_address()}\n"
-            )
+                # Prepare clinic information string
+                clinic_info_text = (
+                    f"Name: {clinic_instance.get_name()}\n"
+                    f"Clinic user ID: {clinic_instance.get_clinic_Id()}\n"
+                    f"Specialty: {clinic_instance.get_specialty()}\n"
+                    f"Phone number: {clinic_instance.get_phone_no()}\n"
+                    f"App status: {clinic_instance.get_app_status()}"
+                )
 
-            # Add text label
-            lblTextClinicList = ctk.CTkLabel(master=frameClinicList, text=clinic_info_text, height=150,
-                                             corner_radius=20, fg_color="white", bg_color="transparent",
-                                             text_color="#5D5D5D", font=("Inter", 20), justify="left", anchor="w")
-            lblTextClinicList.grid(row=0, column=0, sticky="ew", padx=(220, 0))
+                # Add text label
+                lblTextClinicList = ctk.CTkLabel(master=frameClinicList, text=clinic_info_text, height=150,
+                                                 corner_radius=20, fg_color="white", bg_color="transparent",
+                                                 text_color="#5D5D5D", font=("Inter", 20), justify="left", anchor="w")
+                lblTextClinicList.grid(row=0, column=0, sticky="ew", padx=(220, 0))
 
-            # Add behind label
-            lblBehindClinicList = ctk.CTkLabel(master=frameClinicList, text="", fg_color="white", width=20, height=150)
-            lblBehindClinicList.grid(row=0, column=0, sticky="w", padx=213)
+                # Add behind label
+                lblBehindClinicList = ctk.CTkLabel(master=frameClinicList, text="", fg_color="white", width=20,
+                                                   height=150)
+                lblBehindClinicList.grid(row=0, column=0, sticky="w", padx=213)
 
-            # Link btnClinic_Click function to clinic button
-            frameClinicList.bind("<Button-1>", lambda e, clinic=clinic_instance: btnClinic_Click(filter_type, clinic))
-            lblImageClinicList.bind("<Button-1>",
-                                    lambda e, clinic=clinic_instance: btnClinic_Click(filter_type, clinic))
-            lblTextClinicList.bind("<Button-1>", lambda e, clinic=clinic_instance: btnClinic_Click(filter_type, clinic))
-            lblBehindClinicList.bind("<Button-1>",
+                # Link btnClinic_Click function to clinic button
+                frameClinicList.bind("<Button-1>",
                                      lambda e, clinic=clinic_instance: btnClinic_Click(filter_type, clinic))
+                lblImageClinicList.bind("<Button-1>",
+                                        lambda e, clinic=clinic_instance: btnClinic_Click(filter_type, clinic))
+                lblTextClinicList.bind("<Button-1>",
+                                       lambda e, clinic=clinic_instance: btnClinic_Click(filter_type, clinic))
+                lblBehindClinicList.bind("<Button-1>",
+                                         lambda e, clinic=clinic_instance: btnClinic_Click(filter_type, clinic))
 
-            row_index += 1
-            frameClinicList.grid()
-            frameClinicTimeTable.grid_remove()
-            DeclineClinic.grid_remove()
+                row_index += 1
+                frameClinicList.grid()
+                frameClinicTimeTable.grid_remove()
+                frameDeclineClinic.grid_remove()
 
 
 def btn_navigate_clinic_list(filter_type):
@@ -273,6 +279,7 @@ def btn_navigate_clinic_list(filter_type):
 
 
 def btnClinic_Click(filter_type, clinic):
+    frameDeclineClinic.grid_remove()
     toolbar_label_frame.grid()
     frameClinic.grid()
     frameClinicTimeTable.grid()
@@ -286,9 +293,7 @@ def btnClinic_Click(filter_type, clinic):
     row_index = 0
 
     try:
-        clinic_name = (
-            f"{clinic.get_name()}\n"
-        )
+        clinic_name = f"{clinic.get_name()}\n"
         clinic_info = (
             f"ID: {clinic.get_clinic_Id()}\n"
             f"Phone number: {clinic.get_phone_no()}\n"
@@ -297,7 +302,6 @@ def btnClinic_Click(filter_type, clinic):
             f"Address: {clinic.get_address()}\n"
             f"Description: {clinic.get_description()}\n"
             f"GRD status: {clinic.get_GRDStatus()}\n"
-
         )
 
         app_status = clinic.get_app_status()
@@ -318,9 +322,9 @@ def btnClinic_Click(filter_type, clinic):
         # Create the button inside the frame
         BtnBack = CTkButton(
             master=frameClinic,
-            text="",  # Set text to an empty string
-            image=CTkImage(imgBtnBack, size=(30, 30)),  # Assuming imgBtnBack is the image for the button
-            command=lambda: btn_navigate_clinic_list(filter_type),  # Change the command to navigate back
+            text="",
+            image=CTkImage(imgBtnBack, size=(30, 30)),
+            command=lambda: btn_navigate_clinic_list(filter_type),
             fg_color="transparent", font=("Inter", 20), width=50, height=50, corner_radius=0
         )
         BtnBack.grid(row=0, column=0, padx=(10, 0), pady=10, sticky="w")
@@ -328,7 +332,6 @@ def btnClinic_Click(filter_type, clinic):
         row_index += 1
 
         # Display the clinic image if available
-
         lbl_clinic_name = CTkLabel(
             master=frameClinic, text=clinic_name, width=550, height=0, corner_radius=0,
             fg_color="transparent", text_color="#5D5D5D", font=("Inter", 30, "bold"), justify="left", anchor="w"
@@ -360,6 +363,15 @@ def btnClinic_Click(filter_type, clinic):
         end_hours = clinic.get_end_hours().split(", ")
         start_breaks = clinic.get_start_break_hours().split(", ")
         end_breaks = clinic.get_end_break_hours().split(", ")
+
+        # print("Work days:", work_days)
+        # print("Start hours:", start_hours)
+        # print("End hours:", end_hours)
+        # print("Start breaks:", start_breaks)
+        # print("End breaks:", end_breaks)
+
+        if not (len(work_days) == len(start_hours) == len(end_hours) == len(start_breaks) == len(end_breaks)):
+            raise ValueError("Mismatched lengths of work days and hours lists")
 
         # Adding headers
         headers = ["Day", "Start Hour", "End Hour", "Break Start", "Break End"]
@@ -426,12 +438,10 @@ def btnClinic_Click(filter_type, clinic):
                               corner_radius=20, command=lambda: decline_clinic(filter_type, clinic))
         btnReject.grid(row=row_index, column=1, pady=20, sticky="e")
 
-        btnAccept = CTkButton(master=frameClinic, text="Accept", fg_color="#5271FF", font=("Inter", 20, "bold"),
-                              corner_radius=20, command=lambda: approve_clinic(filter_type, clinic))
-        btnAccept.grid(row=row_index, column=2, pady=20, padx=(0, 20), sticky="e")
+        btnApprove = CTkButton(master=frameClinic, text="Approve", fg_color="#5271FF", font=("Inter", 20, "bold"),
+                               corner_radius=20, command=lambda: approve_clinic(filter_type, clinic))
+        btnApprove.grid(row=row_index, column=2, pady=20, padx=(0, 20), sticky="e")
 
-        # Ensure the parent frame has proper configuration to center its content
-        frameClinic.grid_columnconfigure(0, weight=1)
     except Exception as e:
         print(f"Error fetching clinic data: {e}")
 
@@ -441,22 +451,26 @@ def approve_clinic(filter_type, clinic):
         clinic_id = clinic.get_clinic_Id()
         db.collection('Clinics').document(clinic_id).update({'AppStatus': 'Approved'})
         print("Clinic Approved")
-        ApproveMail(clinic)
+        # send_approve_clinic_mail(clinic)
         # Display a pop-up informing that the clinic has been approved
         messagebox.showinfo("Clinic Approved",
-                            f"The clinic {clinic.get_name()} has been approved.\nApproved clinic email has been sent")
+                            f"Clinic:  {clinic.get_name()} request has been approved.\nAn approval email has been sent to {clinic.get_name()}")
         btn_navigate_clinic_list(filter_type)
     except Exception as e:
         print(f"Error approving clinic: {e}")
 
 
-def ApproveMail(clinic):
-    print("Send approve email. ")
+def send_approve_clinic_mail(clinic):
+    print("Send approve email.")
     for widget in frameClinicInfo.winfo_children():
         widget.destroy()
 
-    sender = "CallADoctor2024@outlook.com"
+    sender = sender_email
+    sender_password = sender_email_password
     recipient = clinic.get_email()
+    # email example
+    recipient1 = "p22014062@student.newinti.edu.my"
+    recipient2 = "michiko241okamoto@gmail.com"
     print(recipient)
     message = (f"Dear {clinic.get_name()},\n"
                f"Your request has been approved. ")
@@ -464,14 +478,14 @@ def ApproveMail(clinic):
 
     email = EmailMessage()
     email["From"] = sender
-    email["To"] = recipient
-    email["Subject"] = "Approved clinic request for CallDoctor"
+    email["To"] = recipient1
+    email["Subject"] = "BookDoctor Approved clinic request"
     email.set_content(message)
 
     smtp = smtplib.SMTP("smtp-mail.outlook.com", port=587)
     smtp.starttls()
-    smtp.login(sender, "P7EMtmk8Vw3Y")
-    smtp.sendmail(sender, recipient, email.as_string())
+    smtp.login(sender, sender_password)
+    smtp.sendmail(sender, recipient1, email.as_string())
     smtp.quit()
 
 
@@ -481,26 +495,40 @@ def decline_clinic(filter_type, clinic):
         frameClinic.grid_remove()
         frameClinicTimeTable.grid_remove()
         toolbar_label_frame.grid_remove()
-        DeclineClinic.grid()
+        frameDeclineClinic.grid()
 
-        for widget in DeclineClinic.winfo_children():
+        for widget in frameDeclineClinic.winfo_children():
             widget.destroy()
 
+        # Load the image for the button
+        imgBtnBack = Image.open("C:/Users/michi/PycharmProjects/DCS2103_Aug2023/SE Project/Images/back-button.png")
+        ctk_imgBtnBack = CTkImage(imgBtnBack, size=(30, 30))
+
+        # Create the back button inside the DeclineClinic frame
+        BtnBack = CTkButton(
+            master=frameDeclineClinic,
+            text="",
+            image=ctk_imgBtnBack,
+            command=lambda: btnClinic_Click(filter_type, clinic),
+            fg_color="transparent", font=("Inter", 20), width=50, height=50, corner_radius=0
+        )
+        BtnBack.grid(row=0, column=0, padx=(10, 0), pady=10, sticky="w")
+
         # Label for decline reason
-        lblClinicView = CTkLabel(
-            master=DeclineClinic,
-            text=f"What is the reason for declining {clinic.get_name()}?",
+        lblDeclineClinic = CTkLabel(
+            master=frameDeclineClinic,
+            text=f"Please choose the reason for declining {clinic.get_name()}?",
             font=("Inter", 30),
             text_color="black"
         )
-        lblClinicView.grid(row=0, column=0, sticky="w", pady=(0, 5), padx=(0, 0))
+        lblDeclineClinic.grid(row=1, column=0, sticky="w", pady=(10, 5), padx=(10, 0))
 
         # Variable to store the decline reason
         decline_reason = StringVar(value="Select decline reason")
 
         # Dropdown for decline reasons
         dropDecline = CTkOptionMenu(
-            master=DeclineClinic,
+            master=frameDeclineClinic,
             values=["Select decline reason", "Outstanding payment", "Clinic already exists in system.", "Blacklisted"],
             fg_color="white",
             dropdown_fg_color="white",
@@ -514,35 +542,36 @@ def decline_clinic(filter_type, clinic):
             text_color="#898989",
             variable=decline_reason,  # Bind the variable
         )
-        dropDecline.grid(row=1, column=0, sticky="nw", padx=47, pady=40)
+        dropDecline.grid(row=2, column=0, sticky="enw", padx=47, pady=20)
 
         # Submit button
         btnSubmit = CTkButton(
-            master=DeclineClinic,
+            master=frameDeclineClinic,
             text="Submit",
-            fg_color="#5271FF",  # Blue color
+            fg_color="#5271FF",
             font=("Inter", 20, "bold"),
             corner_radius=20,
-            width=100,  # Set a smaller width
-            command=lambda: btnSubmit_Click(clinic, decline_reason.get(), filter_type)  # Pass the selected value
+            width=100,
+            command=lambda: btnSubmit_Click(clinic, decline_reason.get(), filter_type)
         )
-        btnSubmit.grid(row=2, column=0, pady=20)
-
-        # Center the button by setting padx to auto
-        btnSubmit.grid(row=2, column=0, pady=20, padx=(150, 150))
+        btnSubmit.grid(row=3, column=0, pady=20, padx=(150, 150))
 
     except Exception as e:
         print(f"Error declining clinic: {e}")
 
 
-# Example on_submit_click function to handle the button click event
 def btnSubmit_Click(clinic, decline_reason, filter_type):
-    # Check if the decline reason is not selected or is the default "Select decline reason"
     if decline_reason == "Select decline reason":
-        messagebox.showerror("Invalid Selection", "Please select a valid reason for declining the clinic.")
-        return  # Exit the function early
+        lblDeclineClinic = CTkLabel(
+            master=frameDeclineClinic,
+            text=f"Please choose the reason for declining {clinic.get_name()} before submit.",
+            font=("Inter", 15),
+            text_color="red"
+        )
+        lblDeclineClinic.grid(row=4, column=0, sticky="wn", pady=(10, 5), padx=(10, 0))
+        return
 
-    # Implement the actions to be taken when the submit button is clicked
+        # Implement the actions to be taken when the submit button is clicked
     print(f"Submit button clicked for clinic: {clinic.get_name()}")
     print(f"Reason for decline: {decline_reason}")
 
@@ -550,7 +579,7 @@ def btnSubmit_Click(clinic, decline_reason, filter_type):
         clinic_id = clinic.get_clinic_Id()
         db.collection('Clinics').document(clinic_id).update({
             'AppStatus': 'Decline',
-            'DeclineReason': decline_reason  # Add the decline reason
+            'DeclineReason': decline_reason
         })
         print("Clinic status and decline reason updated in the database.")
 
@@ -558,45 +587,54 @@ def btnSubmit_Click(clinic, decline_reason, filter_type):
         for widget in frameClinicInfo.winfo_children():
             widget.destroy()
 
-        sender = "CallADoctor2024@outlook.com"
+        sender = sender_email
+        sender_password = sender_email_password
         recipient = clinic.get_email()
-        print(recipient)
+
         message = (f"Dear {clinic.get_name()},\n"
                    f"Your request has been decline.\nDue to {decline_reason}")
-        print(message)
+        # print(message)
 
         email = EmailMessage()
         email["From"] = sender
         email["To"] = recipient
-        email["Subject"] = "Decline clinic request for CallDoctor"
+        email["Subject"] = "BookDoctor Decline clinic request"
         email.set_content(message)
 
         smtp = smtplib.SMTP("smtp-mail.outlook.com", port=587)
         smtp.starttls()
-        smtp.login(sender, "P7EMtmk8Vw3Y")
+        smtp.login(sender, sender_password)
         smtp.sendmail(sender, recipient, email.as_string())
         smtp.quit()
 
         messagebox.showinfo("Clinic Declined",
-                            f"The clinic {clinic.get_name()} has been declined.\nA decline email has been sent.")
+                            f"Clinic: {clinic.get_name()} request has been declined.\nA decline email has been sent to {clinic.get_name()}.")
         btn_navigate_clinic_list(filter_type)
-
 
     except Exception as e:
         print(f"Error updating clinic in database: {e}")
 
 
+def add_rounded_corners(image, corner_radius):
+    mask = Image.new('L', image.size, 0)
+    draw = ImageDraw.Draw(mask)
+    draw.rounded_rectangle([0, 0, *image.size], radius=corner_radius, fill=255)
+    image = image.convert("RGBA")
+    image.putalpha(mask)
+    return image
+
+
 def on_filter_change(filter_type):
     if filter_type == "Pending":
         clinics_ref = db.collection('Clinics').where('AppStatus', '==', 'Pending')
-    elif filter_type == "Accept":
+    elif filter_type == "Approved":
         clinics_ref = db.collection('Clinics').where('AppStatus', '==', 'Approved')
     elif filter_type == "Decline":
         clinics_ref = db.collection('Clinics').where('AppStatus', '==', 'Decline')
     elif filter_type == "All":
-        clinics_ref = db.collection('Clinics')  # No filter for all clinics
+        clinics_ref = db.collection('Clinics')
     else:
-        clinics_ref = db.collection('Clinics')  # Default to all clinics if value is unexpected
+        clinics_ref = db.collection('Clinics')
     GetClinicInformation(filter_type, clinics_ref)
 
 
@@ -616,43 +654,35 @@ toolbar_label_frame.grid_columnconfigure(0, weight=1)
 frameClinicInfo = CTkScrollableFrame(master=frameHome, fg_color="#B5CAFF", corner_radius=0, orientation="vertical",
                                      scrollbar_button_color="white")
 frameClinicInfo.grid(row=2, column=0, sticky="nsew")
+
 frameClinicInfo.grid_columnconfigure(0, weight=1)
 
-frameClinic = CTkScrollableFrame(master=frameHome, width=800, fg_color="transparent")  # Adjust color as needed
+frameClinic = CTkScrollableFrame(master=frameHome, width=800, fg_color="transparent")
 frameClinic.grid(row=2, column=0, sticky="nsew")
+# Ensure the parent frame has proper configuration to center its content
+frameClinic.grid_columnconfigure(0, weight=1)
 frameClinic.grid_remove()  # Fill the remaining space in the frame
 
-frameClinicTimeTable = CTkFrame(master=frameClinic, width=800, fg_color="transparent")  # Adjust color as needed
+frameClinicTimeTable = CTkFrame(master=frameClinic, width=800, fg_color="transparent")
 frameClinicTimeTable.grid(row=5, column=0, sticky="nsew")
 frameClinicTimeTable.grid_remove()
 
-DeclineClinic = CTkScrollableFrame(master=frameHome, fg_color="#C8FFD4", height=900)  # Adjust color as needed
-DeclineClinic.grid(row=2, column=0, sticky="sew", pady=0)  # Fill the remaining space in the frame
-DeclineClinic.grid_remove()
+frameDeclineClinic = CTkScrollableFrame(master=frameHome, fg_color="transparent", height=900)
+frameDeclineClinic.grid(row=2, column=0, sticky="sew", pady=0)
+frameDeclineClinic.grid_remove()
 
 frameMail = CTkFrame(master=frameClinic, width=800, fg_color="green")
 frameMail.grid(row=5, column=0, sticky="nsew")
 frameMail.grid_remove()
 
-# Side Navigation Bar
 imgBtnMenu = Image.open("C:/Users/michi/PycharmProjects/DCS2103_Aug2023/SE Project/Images/menu.png")
-btnMenu = CTkButton(master=frameSideNav, text="", image=CTkImage(imgBtnMenu, size=(30, 30)), fg_color="#5271FF",
-                    command=btnMenu_Click)
+btnMenu = CTkButton(master=frameSideNav, text="", image=CTkImage(imgBtnMenu, size=(30, 30)), fg_color="#5271FF")
 btnMenu.place(relx=0.5, rely=0.06, anchor="center")
-
-imgBtnHome = Image.open("C:/Users/michi/PycharmProjects/DCS2103_Aug2023/SE Project/Images/home-icon-white.png")
-btnHome = CTkButton(master=frameSideNav, text="", image=CTkImage(imgBtnHome, size=(50, 50)), fg_color="transparent",
-                    command=btnHome_Click)
-btnHome.place(relx=0.5, rely=0.3, anchor="center")
-
-imgBtnBookHis = Image.open("C:/Users/michi/PycharmProjects/DCS2103_Aug2023/SE Project/Images/booking-history-white.png")
-BtnBookHis = CTkButton(master=frameSideNav, text="", image=CTkImage(imgBtnBookHis, size=(60, 60)),
-                       fg_color="transparent", command=btnBookHis_Click)
-BtnBookHis.place(relx=0.5, rely=0.5, anchor="center")
 
 # Logo
 imgHomeLogo = Image.open("C:/Users/michi/PycharmProjects/DCS2103_Aug2023/SE Project/Images/logo.png")
-lblHomeLogo = CTkLabel(master=frameHome, text="", bg_color="white", image=CTkImage(imgHomeLogo, size=(453, 198)))
+lblHomeLogo = CTkLabel(master=frameHome, text="", bg_color="white", image=CTkImage(imgHomeLogo, size=(180, 80)),
+                       anchor="w")
 lblHomeLogo.grid(row=0, column=0, sticky="ewn")
 
 # Login Button
@@ -665,7 +695,8 @@ BtnLogin.grid(row=0, column=0, sticky="ne")
 lblClinicView = CTkLabel(master=toolbar_label_frame, text="Admin View", font=("Inter", 30), text_color="black")
 lblClinicView.grid(row=0, column=0, sticky="w", pady=(0, 5), padx=(0, 0))
 
-dropSearch = CTkOptionMenu(master=toolbar_label_frame, values=["Pending", "Accept", "Decline", "All"], fg_color="white",
+dropSearch = CTkOptionMenu(master=toolbar_label_frame, values=["Pending", "Approved", "Decline", "All"],
+                           fg_color="white",
                            dropdown_fg_color="white", button_color="white", button_hover_color="white", width=206,
                            height=59, anchor="center", corner_radius=20, font=("Inter", 20), text_color="#898989",
                            command=on_filter_change)
@@ -688,17 +719,6 @@ BtnSearch = CTkButton(master=toolbar_label_frame, text="", image=CTkImage(imgBtn
                       corner_radius=0, anchor="center", width=25, command=btnSearch_Click)
 BtnSearch.grid(row=1, column=0, sticky="ne", padx=60, pady=55)
 
-
-def add_rounded_corners(image, corner_radius):
-    mask = Image.new('L', image.size, 0)
-    draw = ImageDraw.Draw(mask)
-    draw.rounded_rectangle([0, 0, *image.size], radius=corner_radius, fill=255)
-    image = image.convert("RGBA")
-    image.putalpha(mask)
-    return image
-
-
-# Initial call to populate the frame with "Pending" clinics
 on_filter_change("Pending")
 
 app.mainloop()
