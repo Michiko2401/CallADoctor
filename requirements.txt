@@ -1,0 +1,6 @@
+customtkinter
+firebase_admin
+pillow
+numpy
+tkcalendar
+opencv-python

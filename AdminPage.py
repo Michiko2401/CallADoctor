@@ -119,29 +119,34 @@ class Clinic:
 
 
 cred = credentials.Certificate("serviceAccountKey.json")
-# Check if firebase_admin has been initialized
 
-firebase_admin.initialize_app(cred, {'storageBucket': 'call-a-doctor-20a5d.appspot.com'})
+# Check if firebase_admin has been initialized
+if not firebase_admin._apps:
+    firebase_admin.initialize_app(cred, {'storageBucket':'call-a-doctor-20a5d.appspot.com'})
 
 db = firestore.client()
 
 app = CTk()
 app.geometry("1080x664")
-# app.resizable(False, False)
-
 set_appearance_mode("light")
 
 # global variable
-pageBookHis = None
+tbSearch = None
+dropSearch = None
+frameClinicInfo = None
+frameClinicTimeTable = None
+frameDeclineClinic = None
+toolbar_label_frame = None
+frameClinic = None
+frameHome = None
+
 sender_email = "CallADoctor2024@outlook.com"
 sender_email_password = "P7EMtmk8Vw3Y"
 
 
-def btnLogin_Click():
-    print("Button Clicked")
-
-
 def btnSearch_Click():
+    global tbSearch
+    global dropSearch
     searchTerm = tbSearch.get().strip()
     filter_type = dropSearch.get()  # Assuming dropSearch holds the filter type
 
@@ -149,7 +154,7 @@ def btnSearch_Click():
         clinics_ref = db.collection('Clinics').where('AppStatus', '==', 'Pending')
     elif filter_type == "Approved":
         clinics_ref = db.collection('Clinics').where('AppStatus', '==', 'Approved')
-    elif filter_type == "Decline":
+    elif filter_type == "Rejected":
         clinics_ref = db.collection('Clinics').where('AppStatus', '==', 'Decline')
     else:
         clinics_ref = db.collection('Clinics')  # Default to all clinics
@@ -158,8 +163,11 @@ def btnSearch_Click():
 
 
 # Function to get clinic information and display it
-# Function to get clinic information and display it
 def GetClinicInformation(filter_type, clinics_ref, searchTerm=""):
+    global frameClinicInfo
+    global frameClinicTimeTable
+    global frameDeclineClinic
+    
     # Fetch data from Firestore
     docs = clinics_ref.stream()
 
@@ -269,10 +277,14 @@ def GetClinicInformation(filter_type, clinics_ref, searchTerm=""):
 
 
 def btn_navigate_clinic_list(filter_type):
+    global toolbar_label_frame
+    global frameClinic
+    global frameHome
+
     toolbar_label_frame.grid()
     frameClinic.grid_remove()
     frameClinicTimeTable.grid_remove()
-    frameHome.pack(fill="both", expand=True)  # Use pack instead of grid
+    frameHome.grid(row=1, column=1, sticky="news")
 
     # Call your function to repopulate the clinic information frame
     on_filter_change(filter_type)
@@ -310,14 +322,14 @@ def btnClinic_Click(filter_type, clinic):
         # Determine the text color based on the value of app_status
         if app_status == "Pending":
             status_color = "#5271FF"  # Blue color
-        elif app_status == "Decline":
-            status_color = "black"  # Black color
+        elif app_status == "Rejected":
+            status_color = "#5D5D5D"  # Black color
         elif app_status == "Approved":
             status_color = "red"  # Red color
         else:
             status_color = None
 
-        imgBtnBack = Image.open("C:/Users/michi/PycharmProjects/DCS2103_Aug2023/SE Project/Images/back-button.png")
+        imgBtnBack = Image.open("./SE Project/Images/back.png")
 
         # Create the button inside the frame
         BtnBack = CTkButton(
@@ -434,7 +446,7 @@ def btnClinic_Click(filter_type, clinic):
 
         row_index += 1
 
-        btnReject = CTkButton(master=frameClinic, text="Decline", fg_color="red", font=("Inter", 20, "bold"),
+        btnReject = CTkButton(master=frameClinic, text="Rejected", fg_color="red", font=("Inter", 20, "bold"),
                               corner_radius=20, command=lambda: decline_clinic(filter_type, clinic))
         btnReject.grid(row=row_index, column=1, pady=20, sticky="e")
 
@@ -461,6 +473,8 @@ def approve_clinic(filter_type, clinic):
 
 
 def send_approve_clinic_mail(clinic):
+    global frameClinicInfo
+
     print("Send approve email.")
     for widget in frameClinicInfo.winfo_children():
         widget.destroy()
@@ -490,6 +504,11 @@ def send_approve_clinic_mail(clinic):
 
 
 def decline_clinic(filter_type, clinic):
+    global frameClinicInfo
+    global frameClinicTimeTable
+    global frameDeclineClinic
+    global frameClinic
+    global frameHome
     try:
         # Hide other frames
         frameClinic.grid_remove()
@@ -501,7 +520,7 @@ def decline_clinic(filter_type, clinic):
             widget.destroy()
 
         # Load the image for the button
-        imgBtnBack = Image.open("C:/Users/michi/PycharmProjects/DCS2103_Aug2023/SE Project/Images/back-button.png")
+        imgBtnBack = Image.open("./SE Project/Images/back.png")
         ctk_imgBtnBack = CTkImage(imgBtnBack, size=(30, 30))
 
         # Create the back button inside the DeclineClinic frame
@@ -519,7 +538,7 @@ def decline_clinic(filter_type, clinic):
             master=frameDeclineClinic,
             text=f"Please choose the reason for declining {clinic.get_name()}?",
             font=("Inter", 30),
-            text_color="black"
+            text_color="#5D5D5D"
         )
         lblDeclineClinic.grid(row=1, column=0, sticky="w", pady=(10, 5), padx=(10, 0))
 
@@ -561,6 +580,15 @@ def decline_clinic(filter_type, clinic):
 
 
 def btnSubmit_Click(clinic, decline_reason, filter_type):
+    global tbSearch
+    global dropSearch
+    global frameClinicInfo
+    global frameClinicTimeTable
+    global frameDeclineClinic
+    global toolbar_label_frame
+    global frameClinic
+    global frameHome
+
     if decline_reason == "Select decline reason":
         lblDeclineClinic = CTkLabel(
             master=frameDeclineClinic,
@@ -629,7 +657,7 @@ def on_filter_change(filter_type):
         clinics_ref = db.collection('Clinics').where('AppStatus', '==', 'Pending')
     elif filter_type == "Approved":
         clinics_ref = db.collection('Clinics').where('AppStatus', '==', 'Approved')
-    elif filter_type == "Decline":
+    elif filter_type == "Rejected":
         clinics_ref = db.collection('Clinics').where('AppStatus', '==', 'Decline')
     elif filter_type == "All":
         clinics_ref = db.collection('Clinics')
@@ -637,88 +665,79 @@ def on_filter_change(filter_type):
         clinics_ref = db.collection('Clinics')
     GetClinicInformation(filter_type, clinics_ref)
 
+def create_AdminPg(master):
+    global tbSearch
+    global dropSearch
+    global frameClinicInfo
+    global frameClinicTimeTable
+    global frameDeclineClinic
+    global toolbar_label_frame
+    global frameClinic
+    global frameHome
 
-# Frames
-frameSideNav = CTkFrame(master=app, fg_color="#5271FF", corner_radius=0, width=80)
-frameSideNav.pack(side="left", fill="y")
+    # Frames
+    frameHome = CTkFrame(master=master, fg_color="#B5CAFF", corner_radius=0)
+    frameHome.grid_columnconfigure(0, weight=1)
+    frameHome.grid_rowconfigure(2, weight=1)
 
-frameHome = CTkFrame(master=app, fg_color="#B5CAFF", corner_radius=0)
-frameHome.pack(fill="both", expand=True)
-frameHome.grid_columnconfigure(0, weight=1)
-frameHome.grid_rowconfigure(2, weight=1)
+    toolbar_label_frame = CTkFrame(master=frameHome, fg_color="transparent")
+    toolbar_label_frame.grid(row=1, column=0, sticky="ew")
+    toolbar_label_frame.grid_columnconfigure(0, weight=1)
 
-toolbar_label_frame = CTkFrame(master=frameHome, fg_color="transparent")
-toolbar_label_frame.grid(row=1, column=0, sticky="ew")
-toolbar_label_frame.grid_columnconfigure(0, weight=1)
+    frameClinicInfo = CTkScrollableFrame(master=frameHome, fg_color="#B5CAFF", corner_radius=0, orientation="vertical",
+                                        scrollbar_button_color="white")
+    frameClinicInfo.grid(row=2, column=0, sticky="nsew")
 
-frameClinicInfo = CTkScrollableFrame(master=frameHome, fg_color="#B5CAFF", corner_radius=0, orientation="vertical",
-                                     scrollbar_button_color="white")
-frameClinicInfo.grid(row=2, column=0, sticky="nsew")
+    frameClinicInfo.grid_columnconfigure(0, weight=1)
 
-frameClinicInfo.grid_columnconfigure(0, weight=1)
+    frameClinic = CTkScrollableFrame(master=frameHome, width=800, fg_color="transparent")
+    frameClinic.grid(row=2, column=0, sticky="nsew")
+    # Ensure the parent frame has proper configuration to center its content
+    frameClinic.grid_columnconfigure(0, weight=1)
+    frameClinic.grid_remove()  # Fill the remaining space in the frame
 
-frameClinic = CTkScrollableFrame(master=frameHome, width=800, fg_color="transparent")
-frameClinic.grid(row=2, column=0, sticky="nsew")
-# Ensure the parent frame has proper configuration to center its content
-frameClinic.grid_columnconfigure(0, weight=1)
-frameClinic.grid_remove()  # Fill the remaining space in the frame
+    frameClinicTimeTable = CTkFrame(master=frameClinic, width=800, fg_color="transparent")
+    frameClinicTimeTable.grid(row=5, column=0, sticky="nsew")
+    frameClinicTimeTable.grid_remove()
 
-frameClinicTimeTable = CTkFrame(master=frameClinic, width=800, fg_color="transparent")
-frameClinicTimeTable.grid(row=5, column=0, sticky="nsew")
-frameClinicTimeTable.grid_remove()
+    frameDeclineClinic = CTkScrollableFrame(master=frameHome, fg_color="transparent", height=900)
+    frameDeclineClinic.grid(row=2, column=0, sticky="sew", pady=0)
+    frameDeclineClinic.grid_remove()
 
-frameDeclineClinic = CTkScrollableFrame(master=frameHome, fg_color="transparent", height=900)
-frameDeclineClinic.grid(row=2, column=0, sticky="sew", pady=0)
-frameDeclineClinic.grid_remove()
+    frameMail = CTkFrame(master=frameClinic, width=800, fg_color="green")
+    frameMail.grid(row=5, column=0, sticky="nsew")
+    frameMail.grid_remove()
 
-frameMail = CTkFrame(master=frameClinic, width=800, fg_color="green")
-frameMail.grid(row=5, column=0, sticky="nsew")
-frameMail.grid_remove()
+    # Search Bar
+    lblClinicView = CTkLabel(master=toolbar_label_frame, text="Admin View", font=("Inter", 30, "bold"), text_color="#5D5D5D")
+    lblClinicView.grid(row=0, column=0, sticky="w", pady=(5, 5), padx=(0, 0))
 
-imgBtnMenu = Image.open("C:/Users/michi/PycharmProjects/DCS2103_Aug2023/SE Project/Images/menu.png")
-btnMenu = CTkButton(master=frameSideNav, text="", image=CTkImage(imgBtnMenu, size=(30, 30)), fg_color="#5271FF")
-btnMenu.place(relx=0.5, rely=0.06, anchor="center")
+    dropSearch = CTkOptionMenu(master=toolbar_label_frame, values=["Pending", "Approved", "Rejected", "All"],
+                            fg_color="white",
+                            dropdown_fg_color="white", button_color="white", button_hover_color="white", width=206,
+                            height=59, anchor="center", corner_radius=20, font=("Inter", 20), text_color="#898989",
+                            command=on_filter_change)
+    dropSearch.set("Pending")  # Set default value to "Pending"
+    dropSearch.grid(row=1, column=0, sticky="nw", padx=47, pady=40)
 
-# Logo
-imgHomeLogo = Image.open("C:/Users/michi/PycharmProjects/DCS2103_Aug2023/SE Project/Images/logo.png")
-lblHomeLogo = CTkLabel(master=frameHome, text="", bg_color="white", image=CTkImage(imgHomeLogo, size=(180, 80)),
-                       anchor="w")
-lblHomeLogo.grid(row=0, column=0, sticky="ewn")
+    tbSearch = CTkEntry(master=toolbar_label_frame, fg_color="white", width=700, height=59, corner_radius=20,
+                        font=("Inter", 15),
+                        text_color="#5D5D5D", border_width=0)
+    tbSearch.grid(row=1, column=0, sticky="new", padx=(238, 47), pady=40)
 
-# Login Button
-imgBtnLogin = Image.open("C:/Users/michi/PycharmProjects/DCS2103_Aug2023/SE Project/Images/profile-user-blue.png")
-BtnLogin = CTkButton(master=frameHome, text="", image=CTkImage(imgBtnLogin, size=(50, 50)), fg_color="white",
-                     corner_radius=0, anchor="e", width=50, command=btnLogin_Click)
-BtnLogin.grid(row=0, column=0, sticky="ne")
+    lblBehindSearch = CTkLabel(master=toolbar_label_frame, text="|", font=("Inter", 28), text_color="#5271FF",
+                            bg_color="white",
+                            width=18, height=59)
+    lblBehindSearch.grid(row=1, column=0, sticky="nw", padx=237, pady=40)
 
-# Search Bar
-lblClinicView = CTkLabel(master=toolbar_label_frame, text="Admin View", font=("Inter", 30), text_color="black")
-lblClinicView.grid(row=0, column=0, sticky="w", pady=(0, 5), padx=(0, 0))
+    imgBtnSearch = Image.open("./SE Project/Images/search.png")
+    BtnSearch = CTkButton(master=toolbar_label_frame, text="", image=CTkImage(imgBtnSearch, size=(25, 25)),
+                        fg_color="white",
+                        corner_radius=0, anchor="center", width=25, command=btnSearch_Click)
+    BtnSearch.grid(row=1, column=0, sticky="ne", padx=60, pady=55)
 
-dropSearch = CTkOptionMenu(master=toolbar_label_frame, values=["Pending", "Approved", "Decline", "All"],
-                           fg_color="white",
-                           dropdown_fg_color="white", button_color="white", button_hover_color="white", width=206,
-                           height=59, anchor="center", corner_radius=20, font=("Inter", 20), text_color="#898989",
-                           command=on_filter_change)
-dropSearch.set("Pending")  # Set default value to "Pending"
-dropSearch.grid(row=1, column=0, sticky="nw", padx=47, pady=40)
+    on_filter_change("Pending")
 
-tbSearch = CTkEntry(master=toolbar_label_frame, fg_color="white", width=700, height=59, corner_radius=20,
-                    font=("Inter", 15),
-                    text_color="black", border_width=0)
-tbSearch.grid(row=1, column=0, sticky="new", padx=(238, 47), pady=40)
+    return frameHome
 
-lblBehindSearch = CTkLabel(master=toolbar_label_frame, text="|", font=("Inter", 28), text_color="#5271FF",
-                           bg_color="white",
-                           width=18, height=59)
-lblBehindSearch.grid(row=1, column=0, sticky="nw", padx=237, pady=40)
-
-imgBtnSearch = Image.open("C:/Users/michi/PycharmProjects/DCS2103_Aug2023/SE Project/Images/search.png")
-BtnSearch = CTkButton(master=toolbar_label_frame, text="", image=CTkImage(imgBtnSearch, size=(25, 25)),
-                      fg_color="white",
-                      corner_radius=0, anchor="center", width=25, command=btnSearch_Click)
-BtnSearch.grid(row=1, column=0, sticky="ne", padx=60, pady=55)
-
-on_filter_change("Pending")
-
-app.mainloop()
+#app.mainloop()
